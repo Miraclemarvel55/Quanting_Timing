@@ -24,4 +24,6 @@ def mkdir(path):
         return False
 def mk_all_dir_ok():
     mkdir(dtcst.My_Database_Dir)
-    mkdir(dtcst.My_Store_Dir)     
+    mkdir(dtcst.My_Store_Dir)
+    mkdir(dtcst.cweb_path)
+    mkdir((dtcst.cweb_analyzer_path))

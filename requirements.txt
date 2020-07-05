@@ -1,0 +1,22 @@
+python=2.7
+
+# apt package manager
+apt install python-dev
+apt install tk-dev
+apt install python-tk
+
+# yum package manager
+yum install python-devel
+yum install tk-dev
+
+pip install pandas
+pip install numpy
+pip install pyparsing
+pip install six
+pip install sklearn
+pip install matplotlib
+pip install tushare
+pip install seaborn
+pip install hmmlearn
+pip install CAL
+pip install statsmodels

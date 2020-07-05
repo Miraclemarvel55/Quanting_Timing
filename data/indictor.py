@@ -2,65 +2,62 @@
 #!/usr/bin/env python
 '''计算指标接口'''
 import pandas as pd
+import numpy as np
+import copy
 '''const 常量定义'''
 Derivative_str='_d';Time_Related_Index=['volume','amount','turnoverratio']
-def get_daily_compute_index(last_sencond_data,code_rt_dt):
-    temp = [];import numpy
+def get_daily_compute_index(last_second_data,code_rt_dt):
+    temp = []; p_c=code_rt_dt['changepercent'].item();old_p_c=last_second_data['p_change'].item()
+    volume =code_rt_dt['volume'].item()/100
+    minimum=-1;maximum=1;normal=0;#result 存放驻点信息 极小值-1，极大值1，正常过渡点0
     #振幅amplitude计算
     amplitude = (code_rt_dt['high']-code_rt_dt['low'])/code_rt_dt['trade']*100
     temp.append(amplitude)
-    #MACD 计算
-    data=last_sencond_data;quick_n=12;slow_n=26;dem_n=9;val_name="trade";ema_map={'_quick':quick_n,'_slow':slow_n,'5':5}
-    for ema_key in ema_map:
-        ema_map[ema_key] = (2 * code_rt_dt[val_name] + ( ema_map[ema_key] - 1) * data['ema'+ema_key]) / ( ema_map[ema_key] + 1)
-    ema_quick = ema_map['_quick']
-    ema_slow = ema_map['_slow']
-    DIFF = ema_quick -ema_slow
-    DEM = (2 * DIFF + (dem_n - 1) * data['DEM']) / (dem_n + 1)
-    MACD = 2*(DIFF-DEM)
-    temp+=[ema_map['5'],MACD,DIFF,DEM,ema_map['_quick'],ema_map['_slow']]
-    #KDJ计算
-    last_k = data['K']
-    last_d = data['D']
-    c, l, h = code_rt_dt["trade"], code_rt_dt["low"], code_rt_dt["high"]
-    rsv = (c - l) / (h - l) * 100
-    if numpy.isnan(rsv):
-        print '除零异常 已矫正'
-        print code_rt_dt
-        if code_rt_dt['changepercent']>0:rsv=100
-        elif code_rt_dt['changepercent']<0:rsv=-100
-        else:rsv=50 
-    k = (2.0 / 3) * last_k + (1.0 / 3) * rsv
-    d = (2.0 / 3) * last_d + (1.0 / 3) * k
-    j = 3 * k - 2 * d
-    temp+=[k,d,j]
-    #变化率计算————导数计算
-    preset = 50;
-    from collections import OrderedDict
-    map_dic = OrderedDict();map_dic['high']=code_rt_dt['high']
-    map_dic['low']=code_rt_dt['low']; map_dic['ema5']=ema_map['5'];map_dic['MACD']=MACD;map_dic['DIFF']=DIFF;map_dic['DEM']=DEM;\
-    map_dic['K']=k;map_dic['D']=d;
-    map_dic['ema_quick']=ema_quick;map_dic['ema_slow']=ema_slow;map_dic['MACD_d']=preset;map_dic['ema5_d']=preset;#顺序字典，不可随意调整顺序见data_const
-    second_derivative_need_idxs = ['MACD','ema5']
-    for key in map_dic:
-        _d = (map_dic[key]-data[key])/abs(data[key])
-        temp.append(_d)
-        if key in second_derivative_need_idxs:
-            map_dic[key+Derivative_str]=_d
-    return temp
-def new_data_line(last_exchange_day,last_sencond_data,code_rt_dt):
+    #PVT 计算
+    PVT=p_c*volume+last_second_data['PVT']
+    temp.append(PVT)
+    #stationary_info 今日设置为默认值，因为这个值的确定需要后一日的数据
+    temp.append(normal)
+    #昨日 stationary_info 设置，今日信息已得可以确定昨日驻点状态
+    stationary_old=0
+    if p_c>0:
+        if old_p_c<0:stationary_old=minimum
+    elif p_c<0:
+        if old_p_c>0:stationary_old=maximum
+    else :
+        if old_p_c<0:stationary_old=minimum
+        elif old_p_c>0:stationary_old=maximum
+        else :stationary_old=normal
+    #昨日信息可以更新的全部更新
+    last_second_data = pd.Series(last_second_data);
+    last_second_data['stationary_info']=stationary_old;last_second_data['review_pc']=p_c;
+    #计算dist2last_min，dist2last_max
+    dist2last_min=dist2last_max=1;
+    if stationary_old==1:
+            dist2last_min=last_second_data['dist2last_min']+1;
+    elif stationary_old==-1:
+        dist2last_max=last_second_data['dist2last_max']+1;
+    else: 
+        dist2last_max=last_second_data['dist2last_max']+1;
+        dist2last_min=last_second_data['dist2last_min']+1;
+    temp.append(dist2last_min);temp.append(dist2last_max);
+    return temp,last_second_data
+    
+    
+def new_data_line(last_exchange_day,last_second_data,code_rt_dt):
     third_party_data_index = ['open','high','trade','low','volume','nmc','amount','turnoverratio','changepercent','changepercent']#第二次changepercent指代review_pc的初值
     temp = [];temp.append(last_exchange_day)
-    import util;time_coefficient = util.time_coefficient()
+    import util;time_coefficient = util.time_coefficient(last_exchange_day)
     for item in third_party_data_index:
         append = code_rt_dt[item].item()
         if item in Time_Related_Index:
-            #print 'entering Time_Related_Index'
-            append=append* time_coefficient
+            if item=='turnoverratio':item='turnover_rate';#
+            append=append + (1-time_coefficient)*last_second_data[item].item()
+        if item=='volume':append = append/100
         temp =temp +[append]
-    temp += get_daily_compute_index(last_sencond_data,code_rt_dt)
-    #print len(temp)
-    return temp 
+    daily_computing_items,last_second_data = get_daily_compute_index(last_second_data,code_rt_dt)
+    temp +=daily_computing_items
+    return temp,last_second_data
 def add_wanted_index(data,item,basic_env=None):
     #import pandas as pd
     if item == 'turnover_rate':
@@ -104,14 +101,16 @@ def add_wanted_index(data,item,basic_env=None):
         '''data = pd.concat([data,df], axis=1)'''#版本兼容性不好
         data.insert(6,item,df[item])
         return data
-    elif item=='ema5':
-        result=ema(data,n=5)
-        df = pd.DataFrame({'ema5':result},columns =['ema5'])
+    elif item=='ema3' or item=='ema5':
+        n=int(item[-1])
+        result=ema(data,n=n)
+        df = pd.DataFrame({item:result},columns =[item])
         df.index=data.index
-        #print df.tail()
-        '''data = pd.concat([data,df], axis=1)'''#版本兼容性不好
         data.insert(6,item,df[item])
-        #print 'ema5:',data.head(),data.tail()
+        
+        data=add_p_change(data, input_s=item+'_')
+        data=add_PVT(data, input_s=item+'_')
+        data=add_stationary_info(data, input_s=item+'_')
         return data
     elif item=='efficiency_coefficient':
         return add_efficiency_coefficient(data)
@@ -141,23 +140,45 @@ def add_wanted_index(data,item,basic_env=None):
     elif item == 'feeble_feature':
         return add_feeble_feature(data)
     elif item == 'close_ama':
-        return add_close_ama(data)
+        data = add_close_ama(data);
+        
+        data=add_p_change(data, input_s=item+'_');
+        data=add_PVT(data, input_s=item+'_');
+        data=add_stationary_info(data, input_s=item+'_');
+        return data
     elif item=='positive_volume_sum':
         return add_positive_volume_sum(data)
     elif item=='PVT':
         return add_PVT(data)
+    elif item=='stationary_info':
+        return add_stationary_info(data)
+    elif item=="dist2last_big_drop":
+        return add_dist2last_big_drop(data)
+    elif item=='pseudo_mean_price':
+        data = add_psedo_mean_price(data);
+        
+        data=add_p_change(data, input_s=item+'_');
+        data=add_PVT(data, input_s=item+'_');
+        data=add_stationary_info(data, input_s=item+'_');
+        return data
     else:
         print 'this is a index not in const pool:',item ,' .'
         raise
         return data
-def add_PVT(data):
-    d_pvts = data['volume'].values * data['p_change'].values
+def add_psedo_mean_price(data):
+    label='pseudo_mean_price' 
+    psedo_candidate=data[['close','high','low']]
+    data.insert(6,label,psedo_candidate.mean(axis = 1)) ;
+    return data
+def add_PVT(data,input_s=''):#还包括计算 VT 纯volume trend 指标
+    volume='volume';p_change=input_s+'p_change';PVT=input_s+'PVT';VT=input_s+'VT';
+    p_changes=data[p_change].values;volumes=data[volume].values;
+    d_pvts = volumes * p_changes;   sign = map(lambda x:1 if x>0 else -1, data[p_change].values);
+    vts=np.array(sign)*volumes; 
     for i in range(len(d_pvts))[1:]:#跳过第一项因为第一项的前一项为0，所以加和还是本身
-        d_pvts[i]+=d_pvts[i-1]
-    result = d_pvts/1000
-    data.insert(6,'PVT',result)
-    ema5_PVT = ema(data, n=3, val_name="PVT")
-    data.insert(6,'ema5_PVT',ema5_PVT)
+        d_pvts[i]+=d_pvts[i-1];  vts[i]+=vts[i-1];
+    result = d_pvts
+    data.insert(6,PVT,result);  data.insert(6,VT,vts);
     return data
 def add_positive_volume_sum(data,_index='p_change'):
     list_my = data[_index].tolist();volume = data['volume'].tolist()
@@ -352,6 +373,84 @@ def add_is_d_bigger_than_d_mean(data,_index='MACD_d',n=15):
         result.append(temp)
     data.insert(6,'is_d_bigger_than_d_mean',result)
     return data
+def add_stationary_info(data,input_s=''):
+    minimum=-1;maximum=1;normal=0;#result 存放驻点信息 极小值-1，极大值1，正常过渡点0
+    p_change=input_s+'p_change';stationary_info=input_s+'stationary_info';
+    dist2last_min=input_s+'dist2last_min';dist2last_max=input_s+'dist2last_max'
+    list_my = data[p_change].tolist();result=[normal]*len(list_my);
+    for i in range(1,len(list_my)):#每个点的驻点属性只能由下一个点来确定
+        if list_my[i]>0:
+            if list_my[i-1]<0:result[i-1]=minimum
+        elif list_my[i]<0:
+            if list_my[i-1]>0:result[i-1]=maximum
+        else :
+            if list_my[i-1]<0:result[i-1]=minimum
+            elif list_my[i-1]>0:result[i-1]=maximum
+            else :result[i-1]=normal
+    data.insert(6,stationary_info,result)
+    dist2last_min_temp=[1]*len(list_my);dist2last_max_temp=[1]*len(list_my)
+    min_reset=0;max_reset=0;
+    for i in range(1,len(list_my)):#每个点的驻点属性只能由下一个点来确定
+        if max_reset==1:
+            dist2last_min_temp[i]=dist2last_min_temp[i-1]+1;max_reset=0
+        elif min_reset==1:
+            dist2last_max_temp[i]=dist2last_max_temp[i-1]+1;min_reset=0
+        else: 
+            dist2last_max_temp[i]=dist2last_max_temp[i-1]+1;
+            dist2last_min_temp[i]=dist2last_min_temp[i-1]+1
+        if result[i]>0:max_reset=1
+        elif result[i]<0:min_reset=1
+        else :pass
+    data.insert(6,dist2last_min,dist2last_min_temp);data.insert(6,dist2last_max,dist2last_max_temp)
+    return data
+def add_dist2last_big_drop(data,input_s="p_change"):
+    """
+    计算到各个暴跌点的距离，暴跌点是新生的时间，股票新的交易模式的开启
+    判断今天是否是暴跌点，是的话 填dist2last_big_drop 为0
+    否则将昨日的dist2last_big_drop 加一作为今日的。
+    :param data:
+    :param input_s:
+    :return:
+    """
+    dist2last_big_drop_init = 0  #新的一轮开启
+    p_change_data = data[input_s].values
+    volume_data   = data["volume"].values
+    close_data    = data["close"].values
+    result = copy.deepcopy(p_change_data)
+    last_n = 5
+    drop_limit = -4
+    volume_now_days = 15
+    volume_previdous_days = int(np.e*volume_now_days)
+    volume_limit_propotion = np.e
+    for i in range(0,len(p_change_data)):#每个点的驻点属性只能由下一个点来确定
+        #用涨跌幅判断是否大跌
+        if i<last_n:
+            be_mean_data = p_change_data[:i+1]
+        else:
+            be_mean_data = p_change_data[i-last_n:i+1]
+        mean_drop = np.mean(be_mean_data)
+
+        #用成交量的缩水判断是否大跌
+        if i < volume_now_days + volume_previdous_days+1:
+            volume_propotion = 1
+        else:
+            volume_propotion = np.mean(volume_data[i-(volume_now_days+volume_previdous_days):i-volume_now_days]) \
+                               / np.mean(volume_data[i-volume_now_days:i+1])
+
+        #用是否是近期低点判断并且最近几日跌幅较大，避免振荡后的触底判断成大跌
+        if np.min(close_data[:i+1][-55:]) == close_data[i] and np.mean(p_change_data[:i+1][-3:])<drop_limit:
+            recent_min_judge_is_big_drop = True
+        else:
+            recent_min_judge_is_big_drop = False
+
+        # 综上所述
+        if mean_drop <= drop_limit or i == 0 or volume_limit_propotion < volume_propotion or recent_min_judge_is_big_drop:
+            result[i] = dist2last_big_drop_init
+        else:
+            result[i] = result[i-1]+1
+    result = result.astype(np.int)
+    data.insert(6,"dist2last_big_drop",result)
+    return data
 def add_number_stationary_in_n_days(data,n=15):
     list_my = data['p_change'].tolist();result=[]
     for i in range(len(list_my)):
@@ -379,8 +478,8 @@ def add_is_break_up_n_high_or_low(data,n=10):
     data.insert(6,'is_break_up_n_high_or_low',result)
     return data
 def add_backward_inference_MACD_hit(data):
-    def continuous_MACD_compute(close,last_sencond_data):
-        data=last_sencond_data;quick_n=12;slow_n=26;dem_n=9;ema_map={'_quick':quick_n,'_slow':slow_n,'5':5}
+    def continuous_MACD_compute(close,last_second_data):
+        data=last_second_data;quick_n=12;slow_n=26;dem_n=9;ema_map={'_quick':quick_n,'_slow':slow_n,'5':5}
         for ema_key in ema_map:
             ema_map[ema_key] = (2 * close + ( ema_map[ema_key] - 1) * data['ema'+ema_key]) / ( ema_map[ema_key] + 1)
         ema_quick = ema_map['_quick']
@@ -388,17 +487,17 @@ def add_backward_inference_MACD_hit(data):
         DIFF = ema_quick -ema_slow
         DEM = (2 * DIFF + (dem_n - 1) * data['DEM']) / (dem_n + 1)
         MACD = 2*(DIFF-DEM);return MACD;
-    #last_sencond_data = data.iloc[-2];last_data=data.iloc[-1];high = last_data['high'];low = last_data['low']
-    def hitter_judger(last_sencond_data,high,low):
-        MACD_d_old_bigger_0 = last_sencond_data['MACD_d']>0;high_MACD_compare_old = continuous_MACD_compute(high, last_sencond_data)-last_sencond_data['MACD']
-        low_MACD_compare_old = continuous_MACD_compute(low, last_sencond_data)-last_sencond_data['MACD']
+    #last_second_data = data.iloc[-2];last_data=data.iloc[-1];high = last_data['high'];low = last_data['low']
+    def hitter_judger(last_second_data,high,low):
+        MACD_d_old_bigger_0 = last_second_data['MACD_d']>0;high_MACD_compare_old = continuous_MACD_compute(high, last_second_data)-last_second_data['MACD']
+        low_MACD_compare_old = continuous_MACD_compute(low, last_second_data)-last_second_data['MACD']
         if MACD_d_old_bigger_0 and low_MACD_compare_old<0:return -1;
         elif not MACD_d_old_bigger_0 and high_MACD_compare_old >0:return 1;
         else: return 0;
     result =[0]#第一位置零
     for ii in range(1,len(data)):
-        last_data=data.iloc[ii];last_sencond_data=data.iloc[ii-1];high = last_data['high'];low = last_data['low']
-        result.append(hitter_judger(last_sencond_data, high, low))
+        last_data=data.iloc[ii];last_second_data=data.iloc[ii-1];high = last_data['high'];low = last_data['low']
+        result.append(hitter_judger(last_second_data, high, low))
     data.insert(6,'backward_inference_MACD_hit',result)
     return data
 def add_efficiency_coefficient(data,n=10):
@@ -452,10 +551,12 @@ def add_nmc(data,basic_env):
     nmc_series = pd.Series(nmc, index=data.index.tolist())
     data.insert(6,'nmc',nmc_series)
     return data
-def add_p_change(data):
-    a=add_relative_change(data, 'close')
-    a.rename(columns={'close_d':'p_change'}, inplace = True)
-    a.loc[:,'p_change']=a.loc[:,'p_change']*100
+def add_p_change(data,input_s='close'):
+    close=input_s[:-1] if input_s!='close' else 'close' 
+    p_change='p_change' if close=='close' else input_s+'p_change';
+    a=add_relative_change(data,close)
+    a.rename(columns={close+'_d':p_change}, inplace = True)
+    a.loc[:,p_change]=a.loc[:,p_change]*100
     return a
 def difference(data,index):
     y = data[index];

@@ -64,10 +64,10 @@ def classify(trainData, labels, features):
             traindata_of_x_in_y= trainData[y_index,j].tolist()
             #print traindata_of_x_in_y
             import statsmodels.api as sm
-            showingneeding=True
+            showingneeding=False
             if showingneeding:
                 import  matplotlib as mpl
-                mpl.use('TKAgg')
+                mpl.use('Agg')
                 import matplotlib.pyplot as plt  
                 import seaborn as sns
                 import matplotlib.pyplot as plt2

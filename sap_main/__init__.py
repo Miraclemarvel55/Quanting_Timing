@@ -7,5 +7,6 @@ import make_envs_dir_satisfied as mk_ok
 
 def sap_main():
     mk_ok.mk_all_dir_ok()
-    realtime_data = updt_dt.update_all()
-    ml.ml_all(realtime_data)
+    # realtime_data = updt_dt.update_all()
+    # ml.ml_all(realtime_data)
+    ml.default_run_all()

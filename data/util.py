@@ -57,9 +57,9 @@ def getSeparator():
     return separator
 
 def findPath(file='Project_Root_File.ini'):
-    all_projects_root_path = os.path.dirname(os.path.split(os.path.abspath(os.path.dirname(__file__)))[0])+'/'#可以得到工作空间路径
-    Python_project_root = (all_projects_root_path + 'SAP_Python_0/')
-    return Python_project_root
+    # all_projects_root_path = os.path.dirname(os.path.split(os.path.abspath(os.path.dirname(__file__)))[0])+'/'#可以得到工作空间路径
+    # Python_project_root = (all_projects_root_path + 'SAP_Python_0/')
+    # return Python_project_root
     #下面是通过放置文件来定位工作路径
     o_path = os.getcwd()
     print 'os.getcwd',o_path
@@ -82,22 +82,24 @@ def isNum(value):
         return False
     else:
         return True
-def time_coefficient():
-    trade_time = 4*60#分钟
-    already_trade_time=0
-    import datetime
-    #date = (datetime.datetime.now()-datetime.timedelta(hours=10)).strftime("%Y-%m-%d %H:%M:%S")
-    date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    hour = int(date[11:13])
-    minue = int(date[14:16])
-    #print hour,"minue: ", minue
-    if 9<=hour<13:#早上交易时间
-        already_trade_time=(hour-9)*60+minue-30
-    elif 13<=hour<15:
-        already_trade_time = trade_time/2+(hour-13)*60+minue
-    else:return 1
-    time_coefficient = trade_time/float(already_trade_time)
-    print 'time_coefficient',time_coefficient
+def time_coefficient(last_exchange_day):
+    if getDatetimeToday().strftime("%Y-%m-%d")!=last_exchange_day:time_coefficient = 1
+    else:
+        trade_time = 4*60#分钟
+        already_trade_time=0
+        import datetime
+        #date = (datetime.datetime.now()-datetime.timedelta(hours=10)).strftime("%Y-%m-%d %H:%M:%S")
+        date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        hour = int(date[11:13])
+        minue = int(date[14:16])
+        #print hour,"minue: ", minue
+        if 9<=hour<13:#早上交易时间
+            already_trade_time=(hour-9)*60+minue-30
+        elif 13<=hour<15:
+            already_trade_time = trade_time/2+(hour-13)*60+minue
+        else:already_trade_time=trade_time;
+        time_coefficient = float(already_trade_time)/trade_time
+    #print 'time_coefficient',time_coefficient
     return time_coefficient
         
 def not_want_codes_list():
@@ -134,7 +136,7 @@ def code_func_map(code_func_map_exist=None):
         import ml_stock.not_want_codes_list_object_store as maker
         maker.not_want_codes_list_and_code_func_map_generator(not_want_codes_list_needing=False)
         return code_func_map()
-    print 'util -- code_func_map elements example',data1['000001']
+    #print 'util -- code_func_map elements example',data1['000001']
     return data1
 def get_codata(path,code):
     return pd.read_csv(path+code+'.csv').set_index('date');
@@ -150,7 +152,7 @@ def wierd_abnormal(p1,p2):#反常怪异逻辑
     return not True in [p1,p2]
 aol_func_map ={'and':and_my,'or':or_my,'xor':xor,'identity_func':identity_func}
 myflatten = lambda x: [y for l in x for y in myflatten(l)] if type(x) is list else [x]
-
+x2Code = lambda x:str(x)+'.SZ' if int(x)<600000 else str(x)+'.SH';
 #近n日大盘指标涨跌幅度
 def getlast_n_days_p_change(codata=None,code='sz50',n=55,end=0):
     if n<end:raise RuntimeError('getlast_n_days_p_change num<end')
@@ -260,7 +262,14 @@ def get_first_order_temporal_correlation_coefficient(y_fit,y0):
     diff_y_fit=np.diff(y_fit);diff_y0=np.diff(y0);
     sum_diff1_mul_diff2= sum(diff_y_fit*diff_y0);sum_diff1_mul_self=sum(diff_y_fit*diff_y_fit);sum_diff2_mul_self=sum(diff_y0*diff_y0);
     return sum_diff1_mul_diff2/np.sqrt(sum_diff1_mul_self*sum_diff2_mul_self) #注意范围是-1到+1 正负相关
+dot_mult = lambda (x,y):x*y;
+def weight_sum(weight=[],value=[]):
+    return sum(map(dot_mult,zip(weight,value)));
+def up20(nums=[0]):
+    for item in nums:
+        if item<=0:return False;
+    return True;
 if __name__ == '__main__':
-    print(interval_mapping([1,3,5,6,7], max_w=1, min_w=-1))
+    print type(x2Code(5)),x2Code('5');
     
     

@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.decomposition import PCA

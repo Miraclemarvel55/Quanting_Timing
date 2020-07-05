@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 import tushare as ts
-import pandas as pd
 import data_const,time
 import preprocess_data as prep_d
 import indictor as idx
@@ -28,7 +27,7 @@ def get_last_exchange_day():
             prep_d.compute_item(data_sh_index,'MACD_d').to_csv(data_const.My_Store_Dir+'sh'+data_const.Suffix)
             last_date = data_sh_index.loc[len(data_sh_index)-1]['date']
             print 'today:',hour ,minute,'file_changetime:',file_hour,file_minute,'time_thresh:',time_thresh,'minutes'
-            print 'within timethresh needing file not need change,leaving get_last_exchange_day',last_date
+            print 'within time thresh needing file not need change,leaving get_last_exchange_day',last_date
             return last_date
     except :
         pass
@@ -41,15 +40,15 @@ def get_last_exchange_day():
         #实时行情数据
         realtime = 'realtime_data.csv'
         ts.get_today_all().to_csv(data_const.My_Store_Dir+realtime)
-        print '\n',realtime,'ok'
-        wholeindex = 'whole_index.csv'
+        print '\n',realtime,'ok' #获取实时行情数据
+        wholeindex = 'whole_index.csv' #获取全部指数数据
         ts.get_index().to_csv(data_const.My_Store_Dir+wholeindex)
         print wholeindex,'ok'
         for item,_ in data_const.INDEX_LIST.items():
             prep_d.compute_item(ts.get_k_data(item),'MACD_d').to_csv(data_const.My_Store_Dir+item+data_const.Suffix)
             print item,'ok'
         data_sh_index = pd.read_csv(data_const.My_Store_Dir+'sh.csv')
-        last_date = data_sh_index.loc[len(data_sh_index)-1]['date']
+        last_date = data_sh_index.loc[len(data_sh_index)-1]['date'] #通过沪市指数来获取最后的交易日
         print 'leaving get_last_exchange_day',last_date
         return last_date
     except Exception,e:
@@ -65,12 +64,16 @@ def update_all():
     basic_env = pd.read_csv(data_const.My_Store_Dir+'basic.csv',index_col='code')
     realtime_data = pd.read_csv(data_const.My_Store_Dir+'realtime_data.csv')
     realtime_data = realtime_data.drop_duplicates((['code']))#去除重复操作十分重要
-    realtime_data = realtime_data.set_index('code')
+    realtime_data = realtime_data.set_index('code');
+    
+    return realtime_data
+        
     #用601988.csv中国银行的连续性评估整体文件csv的连续性
     #引入new_code_exist强制更新全部数据
-    new_code_exist_force = True#force update
+    new_code_exist_force = False#force update
     is_sh_continuous ,_,_ = is_continuous_data('601988', basic_env.loc[601988],last_exchange_day)
-    if(not new_code_exist_force and last_exchange_day !=  getDatetimeToday().strftime("%Y-%m-%d") and last_exchange_day!=getDatetimeYesterday().strftime("%Y-%m-%d") and is_sh_continuous):
+    if(not new_code_exist_force and last_exchange_day !=  getDatetimeToday().strftime("%Y-%m-%d") \
+       and last_exchange_day!=getDatetimeYesterday().strftime("%Y-%m-%d") and is_sh_continuous):
         print '今日和昨日都不是交易日并且不需要强制更新全部数据，数据无需更新'
         return realtime_data
     if not realtime_data.index.is_unique:
@@ -86,25 +89,20 @@ def update_all():
             print 'code_basic = basic_env.loc[int(code)] error'
             continue
         if code_rt_dt['high'].item()==code_rt_dt['low'].item() and code_rt_dt['open'].item()==0 :#停牌处理
-            try:
-                data = pd.read_csv(data_const.My_Database_Dir+code+data_const.Suffix)
-                data = prep_d.preprocess_data(data, code_basic)
-                wanted = pd.DataFrame(data[data_const.Feature])
-                wanted.to_csv(data_const.My_Database_Dir+code+data_const.Suffix,index=False)
-            except Exception as e:
-                print e,code
-            continue
-        isTrue ,last_index,data = is_continuous_data(code, code_basic,last_exchange_day);
+            print('停牌')
+            isTrue ,last_index,data = False,-1,None
+        else :isTrue ,last_index,data = is_continuous_data(code, code_basic,last_exchange_day);
         Force_all_renew = True
         if(isTrue and not Force_all_renew):
             try:
                 #print 'new_row'
-                new_row = idx.new_data_line(last_exchange_day,data.loc[last_index-1],code_rt_dt)
-                data.loc[last_index-1,'review_pc'] = code_rt_dt['changepercent']
+                new_row ,last_second_data= idx.new_data_line(last_exchange_day,data.loc[last_index-1],code_rt_dt)
+                data.loc[last_index-1] = last_second_data
             except:
                 print 'except in new_row'
-                new_row = idx.new_data_line(last_exchange_day,data.loc[last_index],code_rt_dt)                
-                data.loc[last_index,'review_pc'] = code_rt_dt['changepercent']
+                raise
+                new_row,last_second_data = idx.new_data_line(last_exchange_day,data.loc[last_index],code_rt_dt)                
+                data.loc[last_index-1] = last_second_data
             data = data[data_const.Feature]
             data.loc[last_index] = new_row
             #print data.tail()[['review_pc','date','p_change']]

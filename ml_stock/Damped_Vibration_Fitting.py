@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*- 
 import numpy as np
 import matplotlib
-matplotlib.use("TKAgg")
+matplotlib.use("Agg")
 #matplotlib.use("Pdf")
 import matplotlib.pyplot as plt
 from scipy import optimize
@@ -26,7 +26,7 @@ def damped_vibration_equation_fitting(x0, y0,f_linear=damped_vibration_equation 
     except Exception,e: 
         #print e,'But we discard them'
         return -1,None
-    show_need = True
+    show_need = False
     if show_need:
         x1=np.array(x0)
         y1 = [f_linear(x_temp,*params) for x_temp in x1]

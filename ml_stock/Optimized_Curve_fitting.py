@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*- 
+# -*- coding:utf-8 -*-
+
 import numpy as np
 import data.util as util
 #阻尼振动 拟合 x = exp(-at)*A*cos(bt + phi) 这里exp是以自然对数为底的指数函数A ，a，b，A，phi 由你的阻尼，劲度系数，滑块质量以及初状态决定
@@ -26,10 +26,10 @@ def func_fitting(x0, y0,f_linear=damped_vibration_equation,title='curve_fitting'
     except Exception,e: 
         #print(e,'exception in func_fitting',y0) #超过设定的拟合最大次数
         return -1,None,0
-    show_need = True;plt=None
+    show_need = False;plt=None
     if show_need:
         import matplotlib
-        matplotlib.use("TKAgg")
+        matplotlib.use("Agg")
         #matplotlib.use("Pdf")
         import matplotlib.pyplot as plt
         plt.close()

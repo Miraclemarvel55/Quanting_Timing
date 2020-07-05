@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*- 
 import numpy as np
 import matplotlib
-matplotlib.use("TKAgg")
+matplotlib.use("Agg")
 #matplotlib.use("Pdf")
 import matplotlib.pyplot as plt
 from scipy import optimize

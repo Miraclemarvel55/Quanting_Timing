@@ -47,8 +47,8 @@ def whole_simulation(data,ml_func,advice_func,review_num=45,review_end=0,accerat
     hold_rate = hold_days/(review_num-review_end+0.0)
     perform = asset/initial*100;stubborn =(close-data.iloc[-review_num]['close'].item())/initial*100;alpha=perform-stubborn
     print 'initial',initial,'close',close,' ishold ',ishold,' asset:',asset,'hold_rate',hold_rate,'perform',perform,'stubborn',stubborn,\
-    '\n','alpha',alpha,'start',data.iloc[-review_num]['date'],data.iloc[-review_end]['date']
-    return alpha#perform
+    '\n','alpha',alpha,'start',data.iloc[-review_num]['date'],"end",data.iloc[-(review_end+1)]['date']
+    return perform
 def single_day_simulation(close=0,advice=True,ishold=0,asset=0,env=None):
     switch_price_predict = False;
     if switch_price_predict:
@@ -124,8 +124,9 @@ def whole_stock_ml_perform_simulation(review_num=45,review_end=0,codes=dtcst.Who
             i-=1;len_codes-=1
             continue
         #对review_num 和 review_end 重新映射使得满足和大盘日期一致性
-        review_num,review_num_date_or_wanted= util.review_num_end_mapping(codata,review_num_date,review_end_date,which_want_or_change_direction=1) 
-        review_end,review_end_date= util.review_num_end_mapping(codata,review_end_date,review_num_date_or_wanted,which_want_or_change_direction=-1)
+        if False:
+            review_num,review_num_date_or_wanted= util.review_num_end_mapping(codata,review_num_date,review_end_date,which_want_or_change_direction=1)
+            review_end,review_end_date= util.review_num_end_mapping(codata,review_end_date,review_num_date_or_wanted,which_want_or_change_direction=-1)
         if review_num==None or review_end==None:continue
         review_num+=1
         from ml_stock import ml_all
@@ -467,52 +468,50 @@ def ml_funcs_perform_compare():
     import ml_all
     all_methods = ml_all.func_name_address.keys()
     all_methods = ['temp_test'];
-    codes = dtcst.Whole_codes;#codes=['603603'];
+    codes = dtcst.Whole_codes;
     for test_method in all_methods:
-        whole_stock_ml_perform_simulation(review_num=50,review_end=20,codes=codes,not_want_codes_list=[],test_method=test_method)
+        whole_stock_ml_perform_simulation(review_num=255,review_end=0,codes=codes,not_want_codes_list=[],test_method=test_method)
  
 #test_main.py 中控制台直接运行的代码
 def test_main():
     get_optimized_period_review_num_of_simulation(maybe_params=[30,25,20,17,15,13,10,7,5])
     #simulation()
-if __name__ == '__main__':
-    ml_funcs_perform_compare();raise
-    review_num=175;review_end=0;codes=dtcst.Whole_codes;not_want_codes_list=[]
-    #codes=['603032']
-    if len(codes)==0:
-        print 'entering whole_stock_ml_perform_simulation: ',review_num,review_end,'not_wanted_codes_list:',len(not_want_codes_list),\
-        ':',not_want_codes_list,'\nwanted_codes:',len(codes)
-    perform  = [];not_zero_profit_dic={};
-    i=1;#codes = list(set(codes).difference(set((util.myflatten(not_want_codes_list)))))
-    print 'entering whole_stock_ml_perform_simulation: ',review_num,review_end,'not_wanted_codes_list:',len(not_want_codes_list),\
-        ':',not_want_codes_list,'\nwanted_codes:',len(codes)
-    len_codes = len(codes)
-    #使得大盘日期与个股日期回测日期映射保持日期一致性
-    review_num_date,review_end_date  = util.get_coherence_date(review_num, review_end)
-    review_num_cp = review_num;review_end_cp = review_end
-    for code in codes:
-        review_num = review_num_cp;review_end = review_end_cp;
-        print i,'/',len_codes,'simulation',code;i+=1;
-        try:
-            codata = pd.read_csv(dtcst.My_Database_Dir+code+dtcst.Suffix)
-        except IOError,e:
-            print e;i-=1;len_codes-=1
-            continue
-        if len(codata)<=review_num+55:
-            print 'data amount too small'
-            i-=1;len_codes-=1
-            continue
-        #对review_num 和 review_end 重新映射使得满足和大盘日期一致性
-        review_num,review_num_date_or_wanted= util.review_num_end_mapping(codata,review_num_date,review_end_date,which_want_or_change_direction=1) 
-        review_end,review_end_date= util.review_num_end_mapping(codata,review_end_date,review_num_date_or_wanted,which_want_or_change_direction=-1)
-        if review_num==None or review_end==None:continue
-        review_num+=1
-        from ml_stock import ml_all
-        code_perform = whole_simulation(codata,ml_all.get_optimized_func_of_codes_by_sequence_similarity,advice_func_general,review_num,review_end,accerating=False)
-        perform.append(code_perform)
-    print perform,'\n',sum(perform)/len(perform)
+# if __name__ == '__main__':
+#     review_num=175;review_end=0;codes=dtcst.Whole_codes;not_want_codes_list=[]
+#     #codes=['603032']
+#     if len(codes)==0:
+#         print 'entering whole_stock_ml_perform_simulation: ',review_num,review_end,'not_wanted_codes_list:',len(not_want_codes_list),\
+#         ':',not_want_codes_list,'\nwanted_codes:',len(codes)
+#     perform  = [];not_zero_profit_dic={}
+#     i=1;#codes = list(set(codes).difference(set((util.myflatten(not_want_codes_list)))))
+#     print 'entering whole_stock_ml_perform_simulation: ',review_num,review_end,'not_wanted_codes_list:',len(not_want_codes_list),\
+#         ':',not_want_codes_list,'\nwanted_codes:',len(codes)
+#     len_codes = len(codes)
+#     #使得大盘日期与个股日期回测日期映射保持日期一致性
+#     review_num_date,review_end_date  = util.get_coherence_date(review_num, review_end)
+#     review_num_cp = review_num;review_end_cp = review_end
+#     for code in codes:
+#         review_num = review_num_cp;review_end = review_end_cp;
+#         print i,'/',len_codes,'simulation',code;i+=1;
+#         try:
+#             codata = pd.read_csv(dtcst.My_Database_Dir+code+dtcst.Suffix)
+#         except IOError,e:
+#             print e;i-=1;len_codes-=1
+#             continue
+#         if len(codata)<=review_num+55:
+#             print 'data amount too small'
+#             i-=1;len_codes-=1
+#             continue
+#         #对review_num 和 review_end 重新映射使得满足和大盘日期一致性
+#         review_num,review_num_date_or_wanted= util.review_num_end_mapping(codata,review_num_date,review_end_date,which_want_or_change_direction=1)
+#         review_end,review_end_date= util.review_num_end_mapping(codata,review_end_date,review_num_date_or_wanted,which_want_or_change_direction=-1)
+#         if review_num==None or review_end==None:continue
+#         review_num+=1
+#         from ml_stock import ml_all
+#         code_perform = whole_simulation(codata,ml_all.get_optimized_func_of_codes_by_sequence_similarity,advice_func_general,review_num,review_end,accerating=False)
+#         perform.append(code_perform)
+#     print perform,'\n',sum(perform)/len(perform)
 
-    
-    
-    
-    
+if __name__ == "__main__":
+    whole_stock_ml_perform_simulation(review_num=255,review_end=0,codes=dtcst.Whole_codes,not_want_codes_list=[],test_method='default')
+
